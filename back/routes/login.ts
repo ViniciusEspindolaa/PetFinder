@@ -73,7 +73,6 @@ router.post("/", async (req, res) => {
   const mensaPadrao = "Login ou senha incorretos"
 
   if (!email || !senha) {
-    // res.status(400).json({ erro: "Informe e-mail e senha do usuário" })
     res.status(400).json({ erro: mensaPadrao })
     return
   }
@@ -84,19 +83,24 @@ router.post("/", async (req, res) => {
     })
 
     if (usuario == null) {
-      // res.status(400).json({ erro: "E-mail inválido" })
+      // Em desenvolvimento, log mais detalhado
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Login] Usuário não encontrado: ${email}`)
+      }
       res.status(400).json({ erro: mensaPadrao })
       return
     }
 
     // se o e-mail existe, faz-se a comparação dos hashs
     if (bcrypt.compareSync(senha, usuario.senha)) {
-      // se confere, gera e retorna o token
+      // se confere, gera e retorna o token (usando JWT_SECRET para compatibilidade com middleware)
       const token = jwt.sign({
+        id: usuario.id,
+        email: usuario.email,
         usuarioLogadoId: usuario.id,
         usuarioLogadoNome: usuario.nome
       },
-        process.env.JWT_KEY as string,
+        process.env.JWT_SECRET as string,
         { expiresIn: "1h" }
       )
 
@@ -107,10 +111,23 @@ router.post("/", async (req, res) => {
         token
       })
     } else {
+      // Em desenvolvimento, log mais detalhado
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Login] Senha incorreta para: ${email}`)
+      }
       res.status(400).json({ erro: mensaPadrao })
     }
   } catch (error) {
-    res.status(400).json(error)
+    // Em desenvolvimento, retorna detalhes do erro
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[Login] Erro:', error)
+      res.status(500).json({ 
+        erro: "Erro interno do servidor",
+        detalhes: error instanceof Error ? error.message : 'Erro desconhecido'
+      })
+    } else {
+      res.status(500).json({ erro: "Erro interno do servidor" })
+    }
   }
 })
 

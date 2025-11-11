@@ -19,11 +19,29 @@ model Usuario {
   email         String   @db.VarChar(40) @unique
   senha         String   @db.VarChar(60)   // senha deve ser varchar(60)
   telefone      String   @db.VarChar(15)
+  latitude      Decimal? @db.Decimal(10, 7)
+  longitude     Decimal? @db.Decimal(10, 7)
   createdAt     DateTime @default(now())
   publicacoes   Publicacao[]
   avistamentos  Avistamento[]
   eventos       Evento[]
+  socialAccounts SocialAccount[]
   @@map("usuarios")
+}
+
+model SocialAccount {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  provider   String   @db.VarChar(20)
+  providerId String   @db.VarChar(128)
+  email      String?  @db.VarChar(100)
+  accessToken String? 
+  refreshToken String?
+  createdAt  DateTime @default(now())
+  userId     String   @db.VarChar(36)
+  usuario    Usuario  @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerId])
+  @@map("social_accounts")
 }
 
 model Publicacao {

@@ -20,6 +20,7 @@ import routesLogin from './routes/login'
 import routesDashboard from './routes/dashboard'
 import routesMaps from './routes/maps'
 import routesUpload from './routes/upload'
+import routesAuth from './routes/auth'
 
 // Validar configurações antes de iniciar
 validateConfig()
@@ -158,6 +159,7 @@ app.use("/api/login", routesLogin)
 app.use("/api/dashboard", routesDashboard)
 app.use("/api/maps", routesMaps)
 app.use("/api/upload", routesUpload)
+app.use('/api/auth', routesAuth)
 
 // Rota raiz - redireciona para info da API
 app.get('/', (req, res) => {

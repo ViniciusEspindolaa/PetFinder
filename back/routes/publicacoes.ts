@@ -27,7 +27,11 @@ const petPerdidoSchema = publicacaoBaseSchema.extend({
   cor: z.string().max(20).optional(),
   sexo: z.enum(["MACHO", "FEMEA", "INDEFINIDO"]).optional(),
   idade: z.number().min(0).optional(),
-  data_evento: z.date({ message: "Data em que o pet se perdeu é obrigatória" })
+  // aceita string ISO ou número (timestamp) e converte para Date
+  data_evento: z.preprocess((arg) => {
+    if (typeof arg === 'string' || typeof arg === 'number') return new Date(arg as any)
+    return arg
+  }, z.date({ message: "Data em que o pet se perdeu é obrigatória" }))
 })
 
 const petEncontradoSchema = publicacaoBaseSchema.extend({
@@ -37,7 +41,10 @@ const petEncontradoSchema = publicacaoBaseSchema.extend({
   cor: z.string().max(20).optional(),
   sexo: z.enum(["MACHO", "FEMEA", "INDEFINIDO"]).optional(),
   idade: z.number().min(0).optional(),
-  data_evento: z.date({ message: "Data em que o pet foi encontrado é obrigatória" })
+  data_evento: z.preprocess((arg) => {
+    if (typeof arg === 'string' || typeof arg === 'number') return new Date(arg as any)
+    return arg
+  }, z.date({ message: "Data em que o pet foi encontrado é obrigatória" }))
 })
 
 const petAdocaoSchema = publicacaoBaseSchema.extend({
@@ -114,6 +121,42 @@ router.post("/", async (req, res) => {
       console.error("Erro ao enviar email de confirmação:", emailError);
     }
 
+    // Notificar usuários próximos por email (não bloqueante)
+    (async () => {
+      try {
+        const raio_km = 5 // raio padrão para notificação
+        const lat = Number(publicacao.latitude)
+        const lng = Number(publicacao.longitude)
+
+        // Cálculo aproximado de graus por km (1 grau ≈ 111km)
+        const deltaLat = raio_km / 111
+        const deltaLng = raio_km / (111 * Math.cos(lat * Math.PI / 180))
+
+        // Buscar usuários com localização definida dentro da bbox
+        const candidatos = await prisma.usuario.findMany({
+          where: {
+            AND: [
+              { id: { not: publicacao.usuarioId } },
+              { latitude: { not: null } },
+              { longitude: { not: null } },
+              { latitude: { gte: lat - deltaLat, lte: lat + deltaLat } },
+              { longitude: { gte: lng - deltaLng, lte: lng + deltaLng } }
+            ]
+          }
+        })
+
+        // Filtrar por distância real (Haversine) e enviar email
+        for (const u of candidatos) {
+          const distancia = haversineKm(lat, lng, Number(u.latitude), Number(u.longitude))
+          if (distancia <= raio_km) {
+            await enviaEmailNotificacao(u.nome, u.email, publicacao)
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao notificar usuários próximos:', err)
+      }
+    })()
+
     res.status(201).json(publicacao)
   } catch (error) {
     res.status(400).json(error)
@@ -178,6 +221,43 @@ async function enviaEmail(nome: string, email: string, tipo: 'confirmacao' | 'av
   });
 
   console.log("Message sent: %s", info.messageId);
+}
+
+// Envia email de notificação para usuários próximos a uma publicação
+async function enviaEmailNotificacao(nome: string, email: string, publicacao: any) {
+  const transporter = nodemailer.createTransport({
+    host: "sandbox.smtp.mailtrap.io",
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.MAILTRAP_USER || "968f0dd8cc78d9",
+      pass: process.env.MAILTRAP_PASS || "89ed8bfbf9b7f9"
+    }
+  });
+
+  const subject = `Novo anúncio próximo a você - ${publicacao.titulo}`;
+  const htmlContent = `
+    <h2>Olá ${nome}!</h2>
+    <p>Foi publicado um novo anúncio próximo à sua localização que pode te interessar:</p>
+    <h3>${publicacao.titulo}</h3>
+    <p><strong>Descrição:</strong> ${publicacao.descricao}</p>
+    <p><strong>Local:</strong> ${publicacao.endereco_texto}</p>
+    <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/publicacao/${publicacao.id}">Ver detalhe da publicação</a></p>
+    <p>Equipe PetFinder</p>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: 'petfinder@gmail.com',
+      to: email,
+      subject,
+      text: `Há um novo anúncio próximo a você: ${publicacao.titulo}`,
+      html: htmlContent
+    });
+    console.log("Email de notificação enviado: %s", info.messageId);
+  } catch (err) {
+    console.error('Erro ao enviar email de notificação:', err);
+  }
 }
 
 router.delete("/:id", async (req, res) => {
@@ -732,3 +812,13 @@ router.post("/com-fotos", (req, res) => {
 });
 
 export default router
+
+// Helper Haversine function
+function haversineKm(lat1:number, lon1:number, lat2:number, lon2:number){
+  const R = 6371; // km
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}

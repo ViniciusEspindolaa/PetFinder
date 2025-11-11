@@ -23,15 +23,17 @@ Sistema backend completo para localização e gerenciamento de pets perdidos, en
 - **Node.js** + **TypeScript**
 - **Express.js** - Framework web
 - **Prisma** - ORM para banco de dados
-- **PostgreSQL** - Banco de dados
-- **JWT** - Autenticação
+- **PostgreSQL** (Neon) - Banco de dados em nuvem
+- **JWT** - Autenticação e tokens
+- **Cloudinary** - Upload e armazenamento de imagens
+- **Mailtrap** - Testes de email (desenvolvimento)
 - **Google Maps API** - Geolocalização
-- **Swagger** - Documentação da API
+- **Swagger** - Documentação interativa da API
 - **Winston** - Sistema de logs estruturados
 - **Helmet** + **Express Rate Limit** - Segurança
 - **Zod** + **Express Validator** - Validação de dados
 - **Nodemailer** - Envio de emails
-- **Cloudinary** - Armazenamento de imagens
+- **Bcrypt** - Hash de senhas
 - **PM2** - Gerenciamento de processos
 - **Docker** - Containerização
 
@@ -59,11 +61,37 @@ cp .env.example .env
 ```
 
 Edite o arquivo `.env` com suas configurações:
+
+**Obrigatórias:**
 ```env
-DATABASE_URL="postgresql://usuario:senha@localhost:5432/petfinder"
-JWT_SECRET="sua_chave_secreta_super_forte"
+# Banco de dados (use Neon.tech para PostgreSQL gratuito em nuvem)
+DATABASE_URL="postgresql://usuario:senha@host/database?sslmode=require"
+
+# JWT (gere uma chave forte)
+JWT_SECRET="sua_chave_secreta_super_forte_aqui"
+
+# Servidor
+PORT=3001
+NODE_ENV="development"
+FRONTEND_URL="http://localhost:3000"
+```
+
+**Opcionais (para funcionalidades completas):**
+```env
+# Cloudinary - Upload de imagens (grátis: cloudinary.com)
 CLOUDINARY_CLOUD_NAME="seu_cloud_name"
-# ... outras variáveis
+CLOUDINARY_API_KEY="sua_api_key"
+CLOUDINARY_API_SECRET="seu_api_secret"
+
+# Mailtrap - Testes de email (grátis: mailtrap.io)
+MAILTRAP_USER="seu_username"
+MAILTRAP_PASS="sua_senha"
+EMAIL_HOST="sandbox.smtp.mailtrap.io"
+EMAIL_PORT=2525
+
+# Google OAuth - Login social (opcional)
+GOOGLE_CLIENT_ID="seu_client_id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="seu_client_secret"
 ```
 
 ### 4. Configure o banco de dados
